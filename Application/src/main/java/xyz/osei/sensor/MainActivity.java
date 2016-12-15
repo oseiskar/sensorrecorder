@@ -14,7 +14,9 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
 
     private SensorManager sensorManager;
     private SensorRecorder recorder;
-    private TextView text;
+    private TextView text, errorText;
+    private boolean listening = false;
+    private boolean error = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,21 +36,36 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
         });
 
         text = (TextView)findViewById(R.id.counterText);
+        errorText = (TextView)findViewById(R.id.errorText);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        startListening();
+    }
+
+    private void startListening() {
+        if (listening || error) return;
+        listening = true;
 
         sensorManager.registerListener(recorder,
                 sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE),
                 SensorManager.SENSOR_DELAY_FASTEST);
+
+    }
+
+    private void stopListening() {
+        if (!listening) return;
+        listening = false;
+
+        sensorManager.unregisterListener(recorder);
+        stopListening();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        sensorManager.unregisterListener(recorder);
     }
 
     private long prevKb = 0;
@@ -60,5 +77,13 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
             text.setText(nKb+" kB / "+nEvents+" events");
             prevKb = nKb;
         }
+    }
+
+    @Override
+    public void onError(Throwable err) {
+        error = true;
+        stopListening();
+
+        errorText.setText(err.getMessage());
     }
 }

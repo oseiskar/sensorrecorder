@@ -66,6 +66,22 @@ limitations under the License.
                 android:layout_alignParentRight="true"
                 android:layout_alignParentEnd="true" />
 
+
+            <!-- TextViews are typically self describing, so do not need extra modifications. -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="20sp"
+                android:textAppearance="?android:attr/textAppearanceLarge"
+                android:text=""
+                android:textSize="12sp"
+                android:id="@+id/errorText"
+                android:layout_below="@+id/counterText"
+                android:textColor="#ff0000"
+                android:gravity="center_vertical|center_horizontal"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentEnd="true" />
+
         </RelativeLayout>
     </ScrollView>
 </LinearLayout>
