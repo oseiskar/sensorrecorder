@@ -1,4 +1,5 @@
-# Baro floor height
+# Sensor recorder
 
-An Andoid app for measuring the height of storeys and buildings
-using the barometer.
+Server side script example:
+
+    nc -l -t 9000 > recorded-data/recording.jsonl
