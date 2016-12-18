@@ -3,15 +3,27 @@ package xyz.osei.sensor;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
+import android.location.Location;
+import android.location.LocationListener;
+import android.os.Bundle;
+import android.telephony.CellInfo;
+import android.telephony.CellInfoCdma;
+import android.telephony.CellInfoGsm;
+import android.telephony.CellInfoLte;
+import android.telephony.CellInfoWcdma;
+import android.telephony.PhoneStateListener;
 
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.map.annotate.JsonSerialize;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 
 import xyz.osei.sensor.senders.Sender;
 
-public class SensorRecorder implements SensorEventListener {
+public class SensorRecorder extends PhoneStateListener implements SensorEventListener, LocationListener {
 
     interface Listener {
         void onEvent(long nEvents, long nBytes);
@@ -21,7 +33,6 @@ public class SensorRecorder implements SensorEventListener {
     private long nEvents = 0;
     private long nBytes = 0;
     private Listener listener;
-    private long lastTimestamp = 0;
 
     private ObjectMapper objectMapper = new ObjectMapper();
     private BlockingDeque<String> eventQueue = new LinkedBlockingDeque<>();
@@ -66,14 +77,31 @@ public class SensorRecorder implements SensorEventListener {
     public void recordButton() {
         JsonSensorEvent dto = new JsonSensorEvent();
         dto.sensor = "button";
-        dto.timestamp = lastTimestamp;
+        dto.timestamp = System.currentTimeMillis();
         recordJsonEvent(dto);
     }
 
+    @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
     private static class JsonSensorEvent {
         String sensor;
         long timestamp;
         float[] values;
+
+        private static class CellInfo {
+            String id;
+            int rssi;
+        }
+
+        private static class Location {
+            double latitude;
+            double longitude;
+            float accuracy;
+            float speed;
+            String provider;
+        }
+
+        List<CellInfo> cellInfo;
+        Location location;
     }
 
     @Override
@@ -83,8 +111,6 @@ public class SensorRecorder implements SensorEventListener {
         dto.sensor = event.sensor.getStringType();
         dto.values = event.values;
         dto.timestamp = event.timestamp;
-
-        this.lastTimestamp = event.timestamp;
 
         recordJsonEvent(dto);
     }
@@ -111,4 +137,74 @@ public class SensorRecorder implements SensorEventListener {
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {}
+
+    @Override
+    public void onCellInfoChanged(List<CellInfo> cellInfoList) {
+
+        if (cellInfoList == null) return;
+
+        JsonSensorEvent ev = new JsonSensorEvent();
+
+        ev.timestamp = System.currentTimeMillis();
+
+        ev.cellInfo = new ArrayList<>();
+        for (CellInfo cellInfo : cellInfoList) {
+            JsonSensorEvent.CellInfo jsonInfo = new JsonSensorEvent.CellInfo();
+
+            if (cellInfo instanceof CellInfoLte) {
+                CellInfoLte cell = (CellInfoLte)cellInfo;
+                jsonInfo.rssi = cell.getCellSignalStrength().getDbm();
+                jsonInfo.id = cell.getCellIdentity().toString();
+            }
+            else if (cellInfo instanceof CellInfoCdma) {
+                CellInfoCdma cell = (CellInfoCdma)cellInfo;
+                jsonInfo.rssi = cell.getCellSignalStrength().getDbm();
+                jsonInfo.id = cell.getCellIdentity().toString();
+            }
+            else if (cellInfo instanceof CellInfoGsm) {
+                CellInfoGsm cell = (CellInfoGsm)cellInfo;
+                jsonInfo.rssi = cell.getCellSignalStrength().getDbm();
+                jsonInfo.id = cell.getCellIdentity().toString();
+            }
+            else if (cellInfo instanceof CellInfoWcdma) {
+                CellInfoWcdma cell = (CellInfoWcdma)cellInfo;
+                jsonInfo.rssi = cell.getCellSignalStrength().getDbm();
+                jsonInfo.id = cell.getCellIdentity().toString();
+            }
+            else {
+                System.err.println("unrecognized cell info");
+                continue;
+            }
+            ev.cellInfo.add(jsonInfo);
+        }
+
+        recordJsonEvent(ev);
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+
+        JsonSensorEvent ev = new JsonSensorEvent();
+        ev.timestamp = location.getTime();
+        ev.location = new JsonSensorEvent.Location();
+        ev.location.accuracy = location.getAccuracy();
+        ev.location.latitude = location.getLatitude();
+        ev.location.longitude = location.getLongitude();
+        ev.location.provider = location.getProvider();
+        ev.location.speed = location.getSpeed();
+
+        recordJsonEvent(ev);
+    }
+
+    @Override
+    public void onStatusChanged(String s, int i, Bundle bundle) {
+    }
+
+    @Override
+    public void onProviderEnabled(String s) {
+    }
+
+    @Override
+    public void onProviderDisabled(String s) {
+    }
 }
