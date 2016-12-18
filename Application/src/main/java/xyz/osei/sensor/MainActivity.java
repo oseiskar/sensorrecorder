@@ -36,6 +36,7 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
     private boolean listening = false;
     private boolean hasPermissions = false;
     private boolean error = false;
+    private SignalStrengthListener signalStrengthListener;
 
     private static final int MY_PERMISSIONS_REQUEST_ACCESS_LOCATION = 666;
 
@@ -48,6 +49,9 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+        System.out.println("onCreate");
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.sample_main);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -79,6 +83,8 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
             }
         });
 
+        signalStrengthListener = new SignalStrengthListener();
+
         Button button = (Button) findViewById(R.id.button);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -104,6 +110,7 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
     private void startListening() {
         if (listening || error || !hasPermissions) return;
         listening = true;
+        System.out.println("starting listener...");
 
         for (int sensor : LISTENED_SENSORS) {
             sensorManager.registerListener(recorder,
@@ -117,16 +124,21 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
         float MIN_DISTANCE = 100;
 
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME, MIN_DISTANCE, recorder);
-        telephonyManager.listen(new SignalStrengthListener(), PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, recorder);
+        telephonyManager.listen(signalStrengthListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
         recorder.onCellInfoChanged(telephonyManager.getAllCellInfo());
     }
 
     private void stopListening() {
         if (!listening) return;
         listening = false;
+        System.out.println("stopping listener...");
 
         if (LISTENED_SENSORS.length > 0) sensorManager.unregisterListener(recorder);
+        locationManager.removeUpdates(recorder);
         telephonyManager.listen(recorder, PhoneStateListener.LISTEN_NONE);
+        telephonyManager.listen(signalStrengthListener, PhoneStateListener.LISTEN_NONE);
+
     }
 
     private static String fileTimestamp() {
@@ -139,6 +151,7 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
     @Override
     protected void onPause() {
         super.onPause();
+        stopListening();
     }
 
     private long prevKb = 0;
