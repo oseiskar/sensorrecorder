@@ -17,6 +17,6 @@ limitations under the License.
 
 <resources>
     <string name="buttonText">Button event</string>
-    <string name="counterLabel">Numberr of events</string>
+    <string name="counterLabel">Number of events</string>
     <string name="counterPlaceholder">-</string>
 </resources>
