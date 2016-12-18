@@ -2,6 +2,7 @@ package xyz.osei.sensor;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
@@ -27,6 +28,8 @@ import xyz.osei.sensor.senders.*;
 
 public class MainActivity extends Activity implements SensorRecorder.Listener {
 
+    static boolean alreadyRunning = false;
+
     private SensorManager sensorManager;
     private TelephonyManager telephonyManager;
     private LocationManager locationManager;
@@ -37,6 +40,8 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
     private boolean hasPermissions = false;
     private boolean error = false;
     private SignalStrengthListener signalStrengthListener;
+
+    private final boolean LISTEN_BACKGROUND = true;
 
     private static final int MY_PERMISSIONS_REQUEST_ACCESS_LOCATION = 666;
 
@@ -51,8 +56,13 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
     protected void onCreate(Bundle savedInstanceState) {
 
         System.out.println("onCreate");
+        if (alreadyRunning) {
+            throw new RuntimeException("sorry, must crash :(");
+        }
+        alreadyRunning = true;
 
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.sample_main);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -69,6 +79,12 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
                     MY_PERMISSIONS_REQUEST_ACCESS_LOCATION);
         } else {
             hasPermissions = true;
+        }
+
+        if (recorder != null) {
+            System.out.println("already running... continuing listening");
+            startListening();
+            return;
         }
 
         recorder = new SensorRecorder(this, new Sender.Supplier() {
@@ -99,6 +115,7 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
 
     @Override
     protected void onResume() {
+        System.out.println("onResume");
         super.onResume();
         startListening();
     }
@@ -150,11 +167,12 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
 
     @Override
     protected void onPause() {
+        System.out.println("onPause");
         super.onPause();
-        stopListening();
+        if (!LISTEN_BACKGROUND) stopListening();
     }
 
-    private long prevKb = 0;
+    private long prevKb = -1;
 
     @Override
     public void onEvent(long nEvents, long nBytes) {
