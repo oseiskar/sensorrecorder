@@ -1,7 +1,13 @@
 package xyz.osei.sensor;
 
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Bundle;
 import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
@@ -9,7 +15,9 @@ import android.telephony.TelephonyManager;
 import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.TimeZone;
 
 import xyz.osei.sensor.senders.*;
@@ -32,9 +40,110 @@ public class ListeningManager implements SensorRecorder.Listener {
     private SensorRecorder recorder;
     private SignalStrengthListener signalStrengthListener;
 
-    private int[] LISTENED_SENSORS = {
-            //Sensor.TYPE_PRESSURE
-    };
+    private interface StartStop {
+        void start();
+        void stop();
+    }
+
+    private abstract class LocationRecorder implements LocationListener, StartStop {
+
+        @Override
+        public void onLocationChanged(Location location) {
+            recorder.onLocationChanged(location);
+        }
+
+        @Override
+        public void onStatusChanged(String s, int i, Bundle bundle) {
+            recorder.onStatusChanged(s,i,bundle);
+
+        }
+
+        @Override
+        public void onProviderEnabled(String s) {
+            recorder.onProviderEnabled(s);
+        }
+
+        @Override
+        public void onProviderDisabled(String s) {
+            recorder.onProviderDisabled(s);
+        }
+
+        @Override
+        public void stop() {
+            locationManager.removeUpdates(this);
+        }
+    }
+
+    private abstract class SensorListener implements SensorEventListener, StartStop {
+
+        abstract protected int getSensorType();
+
+        @Override
+        public void onSensorChanged(SensorEvent sensorEvent) {
+            recorder.onSensorChanged(sensorEvent);
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int i) {
+            recorder.onAccuracyChanged(sensor,i);
+        }
+
+        @Override
+        public void start() {
+            sensorManager.registerListener(this,
+                    sensorManager.getDefaultSensor(getSensorType()),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+        }
+
+        @Override
+        public void stop() {
+            sensorManager.unregisterListener(this);
+        }
+    }
+
+    private class GpsListener extends LocationRecorder {
+        static final long MIN_TIME = 10 * 1000;
+        static final float MIN_DISTANCE = 100;
+
+        @Override
+        public void start() {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME, MIN_DISTANCE, this);
+        }
+    }
+
+    private class CellLocationListener extends LocationRecorder {
+
+        @Override
+        public void start() {
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);
+        }
+    }
+
+    private class CellInfoListener implements StartStop {
+
+        @Override
+        public void start() {
+            telephonyManager.listen(recorder, PhoneStateListener.LISTEN_CELL_INFO);
+            telephonyManager.listen(signalStrengthListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+            recorder.onCellInfoChanged(telephonyManager.getAllCellInfo());
+        }
+
+        @Override
+        public void stop() {
+            telephonyManager.listen(signalStrengthListener, PhoneStateListener.LISTEN_NONE);
+        }
+    }
+
+    private class BarometerListener extends SensorListener {
+
+        @Override
+        protected int getSensorType() {
+            return Sensor.TYPE_PRESSURE;
+        }
+    }
+
+
+    List<StartStop> sensorListeners;
 
     ListeningManager(MainActivity mainActivity) {
 
@@ -44,6 +153,7 @@ public class ListeningManager implements SensorRecorder.Listener {
         sensorManager = (SensorManager) activity.getSystemService(SENSOR_SERVICE);
         telephonyManager = (TelephonyManager) activity.getSystemService(TELEPHONY_SERVICE);
         locationManager = (LocationManager) activity.getSystemService(LOCATION_SERVICE);
+
 
         recorder = new SensorRecorder(this, new Sender.Supplier() {
             @Override
@@ -58,6 +168,13 @@ public class ListeningManager implements SensorRecorder.Listener {
         });
 
         signalStrengthListener = new SignalStrengthListener();
+
+        sensorListeners = new ArrayList<>();
+
+        sensorListeners.add(new GpsListener());
+        sensorListeners.add(new CellInfoListener());
+        sensorListeners.add(new CellLocationListener());
+        sensorListeners.add(new BarometerListener());
     }
 
     void setActivity(MainActivity newActivity) {
@@ -68,7 +185,7 @@ public class ListeningManager implements SensorRecorder.Listener {
         activity = newActivity;
     }
 
-    class SignalStrengthListener extends PhoneStateListener {
+    private class SignalStrengthListener extends PhoneStateListener {
         @Override
         public void onSignalStrengthsChanged(SignalStrength s) {
             recorder.onCellInfoChanged(telephonyManager.getAllCellInfo());
@@ -80,21 +197,7 @@ public class ListeningManager implements SensorRecorder.Listener {
         listening = true;
         System.out.println("starting listener...");
 
-        for (int sensor : LISTENED_SENSORS) {
-            sensorManager.registerListener(recorder,
-                    sensorManager.getDefaultSensor(sensor),
-                    SensorManager.SENSOR_DELAY_FASTEST);
-        }
-
-        telephonyManager.listen(recorder, PhoneStateListener.LISTEN_CELL_INFO);
-
-        long MIN_TIME = 10 * 1000;
-        float MIN_DISTANCE = 100;
-
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME, MIN_DISTANCE, recorder);
-        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, recorder);
-        telephonyManager.listen(signalStrengthListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
-        recorder.onCellInfoChanged(telephonyManager.getAllCellInfo());
+        for (StartStop listener : sensorListeners) listener.start();
     }
 
     void stopListening() {
@@ -102,11 +205,7 @@ public class ListeningManager implements SensorRecorder.Listener {
         listening = false;
         System.out.println("stopping listener...");
 
-        if (LISTENED_SENSORS.length > 0) sensorManager.unregisterListener(recorder);
-        locationManager.removeUpdates(recorder);
-        telephonyManager.listen(recorder, PhoneStateListener.LISTEN_NONE);
-        telephonyManager.listen(signalStrengthListener, PhoneStateListener.LISTEN_NONE);
-
+        for (StartStop listener : sensorListeners) listener.stop();
     }
 
     @Override
