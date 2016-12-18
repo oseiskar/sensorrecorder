@@ -6,11 +6,10 @@ import android.hardware.SensorEventListener;
 
 import org.codehaus.jackson.map.ObjectMapper;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
+
+import xyz.osei.sensor.senders.Sender;
 
 public class SensorRecorder implements SensorEventListener {
 
@@ -27,39 +26,21 @@ public class SensorRecorder implements SensorEventListener {
     private ObjectMapper objectMapper = new ObjectMapper();
     private BlockingDeque<String> eventQueue = new LinkedBlockingDeque<>();
 
-    interface Sender {
-        void sendEvent(String data) throws IOException;
-    }
-
-    private static class SocketSender implements Sender {
-
-        private Socket socket;
-
-        SocketSender() {
-            try {
-                InetSocketAddress address = new InetSocketAddress("osei.xyz", 9000);
-                socket = new Socket(address.getAddress(), address.getPort());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public void sendEvent(String data) throws IOException {
-            socket.getOutputStream().write(data.getBytes());
-        }
-    }
-
     private class SensorSender implements Runnable {
 
         Throwable error = null;
+        private Sender.Supplier senderSupplier;
+
+        SensorSender(Sender.Supplier senderSupplier) {
+            this.senderSupplier = senderSupplier;
+        }
 
         @Override
         public void run() {
 
             System.out.println("started sensor sender thread");
             try {
-                Sender sender = new SocketSender();
+                Sender sender = senderSupplier.get();
 
                 while (true) {
                     String data = eventQueue.takeFirst();
@@ -76,9 +57,9 @@ public class SensorRecorder implements SensorEventListener {
 
     private SensorSender sender;
 
-    SensorRecorder(Listener listener) {
+    SensorRecorder(Listener listener, Sender.Supplier senderSupplier) {
         this.listener = listener;
-        this.sender = new SensorSender();
+        this.sender = new SensorSender(senderSupplier);
         new Thread(sender).start();
     }
 

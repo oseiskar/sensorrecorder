@@ -10,6 +10,14 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.io.File;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
+
+import xyz.osei.sensor.senders.*;
+
 public class MainActivity extends Activity implements SensorRecorder.Listener {
 
     private SensorManager sensorManager;
@@ -25,7 +33,17 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        recorder = new SensorRecorder(this);
+        recorder = new SensorRecorder(this, new Sender.Supplier() {
+            @Override
+            public Sender get() throws Exception {
+                //return new SocketSender("osei.xyz", 9000);
+
+                //String fn = "sensor-log-" + fileTimestamp() + ".jsonl";
+                //return new FileSender(new File(getApplicationContext().getFilesDir(), fn));
+
+                return new NullSender();
+            }
+        });
 
         Button button = (Button)findViewById(R.id.button);
         button.setOnClickListener(new View.OnClickListener() {
@@ -61,6 +79,13 @@ public class MainActivity extends Activity implements SensorRecorder.Listener {
 
         sensorManager.unregisterListener(recorder);
         stopListening();
+    }
+
+    private static String fileTimestamp() {
+        TimeZone tz = TimeZone.getTimeZone("UTC");
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd-HHmmss");
+        df.setTimeZone(tz);
+        return df.format(new Date());
     }
 
     @Override
