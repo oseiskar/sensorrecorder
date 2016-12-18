@@ -86,6 +86,7 @@ public class SensorRecorder extends PhoneStateListener implements SensorEventLis
         String sensor;
         long timestamp;
         float[] values;
+        Float value;
 
         private static class CellInfo {
             String id;
@@ -104,13 +105,27 @@ public class SensorRecorder extends PhoneStateListener implements SensorEventLis
         Location location;
     }
 
+    private static boolean isScalar(int sensorType) {
+        switch (sensorType) {
+            case Sensor.TYPE_PRESSURE:
+                return true;
+        }
+        return false;
+    }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
 
         JsonSensorEvent dto = new JsonSensorEvent();
-        dto.sensor = event.sensor.getStringType();
-        dto.values = event.values;
+
         dto.timestamp = event.timestamp;
+        dto.sensor = event.sensor.getStringType();
+
+        if (isScalar(event.sensor.getType())) {
+            dto.value = event.values[0];
+        } else {
+            dto.values = event.values;
+        }
 
         recordJsonEvent(dto);
     }

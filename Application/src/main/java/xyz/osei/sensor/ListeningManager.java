@@ -171,9 +171,9 @@ public class ListeningManager implements SensorRecorder.Listener {
 
         sensorListeners = new ArrayList<>();
 
-        sensorListeners.add(new GpsListener());
-        sensorListeners.add(new CellInfoListener());
-        sensorListeners.add(new CellLocationListener());
+        //sensorListeners.add(new GpsListener());
+        //sensorListeners.add(new CellInfoListener());
+        //sensorListeners.add(new CellLocationListener());
         sensorListeners.add(new BarometerListener());
     }
 
