@@ -55,7 +55,7 @@ public class SensorRecorder extends PhoneStateListener implements SensorEventLis
 
                 while (true) {
                     String data = eventQueue.takeFirst();
-                    System.out.println("sending " + data + " with backlog of "+eventQueue.size());
+                    //System.out.println("sending " + data + " with backlog of "+eventQueue.size());
                     sender.sendEvent(data + "\n");
                 }
             } catch (InterruptedException e) {
@@ -82,27 +82,27 @@ public class SensorRecorder extends PhoneStateListener implements SensorEventLis
     }
 
     @JsonSerialize(include=JsonSerialize.Inclusion.NON_NULL)
-    private static class JsonSensorEvent {
-        String sensor;
-        long timestamp;
-        float[] values;
-        Float value;
+    public static class JsonSensorEvent {
+        public String sensor;
+        public long timestamp;
+        public float[] values;
+        public Float value;
 
-        private static class CellInfo {
-            String id;
-            int rssi;
+        public static class CellInfo {
+            public String id;
+            public int rssi;
         }
 
-        private static class Location {
-            double latitude;
-            double longitude;
-            float accuracy;
-            float speed;
-            String provider;
+        public static class Location {
+            public double latitude;
+            public double longitude;
+            public float accuracy;
+            public float speed;
+            public String provider;
         }
 
-        List<CellInfo> cellInfo;
-        Location location;
+        public List<CellInfo> cellInfo;
+        public Location location;
     }
 
     private static boolean isScalar(int sensorType) {

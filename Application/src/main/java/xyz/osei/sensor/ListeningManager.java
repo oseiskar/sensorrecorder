@@ -77,6 +77,8 @@ public class ListeningManager implements SensorRecorder.Listener {
     private abstract class SensorListener implements SensorEventListener, StartStop {
 
         abstract protected int getSensorType();
+        //private final int DELAY = SensorManager.SENSOR_DELAY_FASTEST;
+        private final int DELAY = SensorManager.SENSOR_DELAY_GAME;
 
         @Override
         public void onSensorChanged(SensorEvent sensorEvent) {
@@ -92,7 +94,7 @@ public class ListeningManager implements SensorRecorder.Listener {
         public void start() {
             sensorManager.registerListener(this,
                     sensorManager.getDefaultSensor(getSensorType()),
-                    SensorManager.SENSOR_DELAY_FASTEST);
+                    DELAY);
         }
 
         @Override
@@ -134,14 +136,6 @@ public class ListeningManager implements SensorRecorder.Listener {
         }
     }
 
-    private class BarometerListener extends SensorListener {
-
-        @Override
-        protected int getSensorType() {
-            return Sensor.TYPE_PRESSURE;
-        }
-    }
-
 
     List<StartStop> sensorListeners;
 
@@ -174,7 +168,24 @@ public class ListeningManager implements SensorRecorder.Listener {
         //sensorListeners.add(new GpsListener());
         //sensorListeners.add(new CellInfoListener());
         //sensorListeners.add(new CellLocationListener());
-        sensorListeners.add(new BarometerListener());
+        sensorListeners.add(new SensorListener() {
+            @Override
+            protected int getSensorType() {
+                return Sensor.TYPE_PRESSURE;
+            }
+        });
+        sensorListeners.add(new SensorListener() {
+            @Override
+            protected int getSensorType() {
+                return Sensor.TYPE_GYROSCOPE_UNCALIBRATED;
+            }
+        });
+        sensorListeners.add(new SensorListener() {
+            @Override
+            protected int getSensorType() {
+                return Sensor.TYPE_ACCELEROMETER_UNCALIBRATED;
+            }
+        });
     }
 
     void setActivity(MainActivity newActivity) {
